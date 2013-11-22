@@ -1,78 +1,68 @@
+
+
 #pragma once
 #include <cstdlib>
 #include <algorithm>
 #include <iostream>
 #include <vector>
-
+#include "Angel.h"
 using namespace std;
 
-// should work for the following types: byte, int, long, float, double
-//template <typename T>
+const GLuint PRIMITIVE_RESTART = 99999999;
 
 class HeightMap
 {
   public:
 
-    // Creates a 2d grid of height*width z heights.
-    HeightMap (int height=512, int width= 512, float spa = .01) :
-      rows (height), cols (width), spacing (spa)
-    {
-      heights.resize (height);
-      for (int i = 0; i < heights.size(); ++i){
-        heights[i].resize (width);
-      }
-      reset ();
-    }
+    // creates a flat plane of 3d points
+    HeightMap (int height=512, int width= 512, float spa = .01, float xo=0, float zo=0, float iy=0);
+    ~HeightMap ();
+
+    // Resets all y heights to zero
+    void reset ();
+
+    // 
+    int getRows ();
+
+    // 
+    int getCols ();
+
+    // total number of vertices
+    int getSize ();
     
-    ~HeightMap (){}
+    vec4& at (int row, int column);
 
-    // Resets all z heights to zero
-    void reset ()
-    {
-      for (int i = 0; i < rows; ++i){
-        for (int j = 0; j < cols; ++j)
-        {
-          heights[i][j] = vec4 (i*spacing, j*spacing, 0, 1);
-        }
-      }
-    }
+    void print ();
 
-    int getHeight () { return rows; }
-    int getWidth () { return cols; }
-    int getSize () { return rows*cols; }
-    
-    vec4& at (int row, int column)
-    {
-      return heights[row][column]; 
-    } 
+    // Procedurally generate values of y heights
+    void generateHeights (vec4 genFunc (int i, int j));
 
-    // Procedurally generate values of z heights
-    void generate (vec4 genFunc (int i, int j))
-    {
-     for (int i = 0; i < getHeight (); ++i){
-        for (int j = 0; j < getWidth (); ++j){
-          heights[i][j] = genFunc (i, j);
-        }
-      }
-    }
+    // Generates color values for each vertex
+    void generateColors (vec4 genFunc (int i, int j));
 
-    // Copies the elements of heights into a 1d array pointed to by arr.
-    // arr must be initialized to a size of at least height*width
-    void flatten (vec4* arr)
-    {
-      int index = 0;
-      for (int i = 0; i < getHeight (); ++i){
-        for (int j = 0; j < getWidth (); ++j){
-          arr[index] = heights[i][j];
-          ++index;
-        }
-      }
-    }
+    int sizeOfTriangleVertices ();
 
+    void flattenTriangles (vec4* arr);
+
+    // need a single array to pass to the gpu buffer
+    // contains all vertices for all the tri strips along with colors for each
+    // vertex
+    void flatten (vec4* arr);
+
+    // get the number of indexes needed to draw the height map as tri-strips
+    // including primitive restart indexes 
+    int sizeOfTriStripIndices ();
+
+    // return an array of indices to vertices in the order needed to draw a set
+    // of tri-strips from the height map the complete array requires a 
+    // primitive restart index at the end of each row
+    void flattenTriStripIndices (unsigned* arr);
 
   private:
 
-    int rows, cols;
+    int rows, cols, size;
+
+    float xoff, zoff, y;
     float spacing;
 
     vector < vector <vec4> > heights;

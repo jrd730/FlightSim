@@ -4,6 +4,10 @@
 // Abstracts the complexities of performing simple operations to adjust
 // the camera's position and direction within a volume.
 
+const static vec4 baseLook (0, 0, 1, 1);
+const static vec4 baseEye (0, 0, 0, 1);
+const static vec4 baseUp (0, 1, 0, 0);
+
 class Camera
 {
   public:
@@ -11,15 +15,25 @@ class Camera
       eye (pos), x_rot (rx), y_rot (ry), z_rot (rz),
       viewMatrix (1.0)
     {
-        look = vec4 (0, 0, 0, 1);
-        up = vec4 (0, 1, 0, 0);
-
-        viewMatrix = LookAt (eye, look, up);
+      resetViewMatrix ();
     }
 
     ~Camera ()
     {
+      
+    }
 
+    void resetViewMatrix ()
+    {
+      look = baseLook;
+      eye = baseEye;
+      up = baseUp;
+
+      x_rot = 0;
+      y_rot = 0;
+      z_rot = 0;
+
+      viewMatrix = LookAt (eye, look, up);
     }
 
     void setEye (const vec3& p) { eye = p; }
@@ -30,25 +44,31 @@ class Camera
     void setYRot (float ry) { y_rot = ry; }
     void setZRot (float rz) { z_rot = rz; }
 
-    void rotate (float& angle, float amount)
+    void rotate (float& angle, float amount, float max=360.0)
     {
       angle += amount;
-      if (amount > 0 && angle > 360.0) angle -= 360.0;
-      else if (amount < 0 && angle < 0) angle += 360.0;
+      if (amount > 0 && angle > max) angle -= max;
+      else if (amount < 0 && angle < 0) angle += max;
     }
 
     void rotateX (float amount)
     {    
       rotate (x_rot, amount);
-      up = normalize ( mvmult ( RotateX (amount), up ) );
-      look = eye + (mvmult (RotateX (amount), ( look - eye ) ) );
+
+      look = eye + (mvmult (RotateY (amount), ( look - eye ) ) );
+
+      up = normalize ( mvmult ( RotateZ (amount), up ) );
+      
       viewMatrix = LookAt (eye, look, up);
+
+      setViewMatrix ();
     }
 
     void rotateY (float amount) {
       rotate (y_rot, amount);
       look = eye + (mvmult (RotateY (amount), ( look - eye ) ) );
       viewMatrix = LookAt (eye, look, up);
+      //setViewMatrix ();
     }
 
     void rotateZ (float amount)
@@ -56,6 +76,8 @@ class Camera
       rotate (z_rot, amount);
       up = normalize ( mvmult ( RotateZ (amount), up ) );
       viewMatrix = LookAt (eye, look, up);
+      
+      //setViewMatrix ();
     }
 
     void forward (float amount)
@@ -80,7 +102,19 @@ class Camera
 
   private:
 
+    void setViewMatrix ()
+    {
+      rotationMatrix = (RotateZ (z_rot) * RotateY (y_rot) * RotateX (x_rot));
+      
+      up = rotationMatrix * baseUp; 
+      
+      look = normalize ( eye + (rotationMatrix * baseLook ) );
+      
+      viewMatrix = LookAt (eye, look, up);
+    }
+
     mat4 viewMatrix;
+    mat4 rotationMatrix;
 
     vec4 eye;
     vec4 look;

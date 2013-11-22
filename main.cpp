@@ -5,38 +5,168 @@
 #include <string>
 #include "Angel.h"
 #include "Camera.h"
-#include "Colors.h"
+//#include "Colors.h"
 #include "Cube.h"
 #include "HeightMap.h"
 #include "Windmill.h"
 using namespace std;
 
 Camera camera (vec4(0, 0, 2, 1), 0, 0, 0);
-
-HeightMap hm (512, 512, .01);
+HeightMap hm (200, 200, .1, -2.0, .5, -.7);
+int num_hm_elements;
+GLuint* indices;
 
 Windmill windmill;
 
 mat4 viewMatrix; 
+mat4 projectionView;
+mat4 projectionViewModel;
 
 char keyDown [255];
 
 bool going = true;
 
-GLuint cube_vao;
-GLuint terrain_vao;
+GLuint model_shader;
+GLuint terrain_shader;
 
-GLuint xlate;
+GLuint cube_vao;
+GLuint hm_vao;
+
+GLuint uColor;
 GLuint vColor;
 GLuint vPosition;
+GLuint solidColor;
 GLuint vViewMatrix;
 GLuint vModelMatrix;
 GLuint vProjectionMatrix;
+GLuint vMvp;
 
-GLfloat Left= -2.0, Right=2.0, top=2.0, bottom= -2.0, near= -4.0, far=4.0;
-
+//GLfloat Left= -2.0, Right=2.0, top=2.0, bottom= -2.0, near= -4.0, far=4.0;
 //mat4 projection = Ortho(Left, Right, bottom, top, near, far);
-mat4 projection = Perspective( 45.0, 1.0, 0.1, 10.0 );
+
+mat4 projection = Perspective( 45.0, 1.0, 0.1, 100.0 );
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void initShaders ()
+{
+  model_shader = InitShader( "model.v", "model.f" );
+
+  glUseProgram( model_shader );
+
+  vMvp = glGetUniformLocation( model_shader, "vMvp" );
+  vColor = glGetAttribLocation( model_shader, "vColor" );
+  uColor = glGetUniformLocation( model_shader, "uColor" );
+  vPosition = glGetAttribLocation( model_shader, "vPosition" );
+  solidColor = glGetUniformLocation( model_shader, "solidColor" );
+  vViewMatrix = glGetUniformLocation( model_shader, "vViewMatrix" );
+  vModelMatrix = glGetUniformLocation( model_shader, "vModelMatrix" );
+  vProjectionMatrix = glGetUniformLocation( model_shader, "vProjectionMatrix" );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void initCube ()
+{
+  colorcube();
+
+  glGenVertexArrays(1, &cube_vao);
+  glBindVertexArray(cube_vao);
+
+  GLuint buffer; 
+  glGenBuffers (1, &buffer); 
+  glBindBuffer (GL_ARRAY_BUFFER, buffer);
+  
+  glBufferData (GL_ARRAY_BUFFER, NumVertices*sizeof(vec4), points[0], GL_STATIC_DRAW);
+  //glBufferSubData (GL_ARRAY_BUFFER, 0, NumVertices*sizeof(vec4), points[0]);
+
+  glEnableVertexAttribArray ( vPosition );
+  glVertexAttribPointer ( vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void initHeightMap ()
+{
+  num_hm_elements = hm.sizeOfTriangleVertices()*2;
+  vec4 hm_elements [num_hm_elements];
+  hm.flattenTriangles (hm_elements);
+
+  // num_hm_elements = hm.getSize () * 2;
+  // vec4 hm_elements [num_hm_elements];
+  // hm.flatten (hm_elements);
+
+  // indices = new unsigned [ hm.sizeOfTriStripIndices () ];
+  // hm.flattenTriStripIndices (indices);
+
+  glGenVertexArrays(1, &hm_vao);
+  glBindVertexArray(hm_vao);
+
+  GLuint buffer; 
+  glGenBuffers (1, &buffer); 
+  glBindBuffer (GL_ARRAY_BUFFER, buffer); 
+
+  glBufferData (GL_ARRAY_BUFFER, num_hm_elements*sizeof(vec4), hm_elements, GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray ( vPosition );
+  glVertexAttribPointer ( vPosition, 4, GL_FLOAT, GL_FALSE, sizeof(vec4)*2, BUFFER_OFFSET(0) );
+
+  glEnableVertexAttribArray( vColor );
+  glVertexAttribPointer ( vColor, 4, GL_FLOAT, GL_FALSE, sizeof(vec4)*2, BUFFER_OFFSET(sizeof (vec4)));
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void displayWindmill ()
+{
+  // draw windmill base
+  glUniform1i (solidColor, 1);
+  glUniform4fv (uColor, 1, colors[RED]);
+
+  projectionViewModel = projectionView * windmill.getBaseTransform();
+  glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);  
+  
+  glBindVertexArray( cube_vao );
+  glDrawArrays( GL_TRIANGLES, 0, NumVertices );
+
+  // draw windmill blades
+  for (int i=0; i < 4; ++i){
+    glUniform1i (solidColor, 1);
+    glUniform4fv (uColor, 1, colors[1+i]);
+
+    projectionViewModel = projectionView * windmill.getBladeTransform(i);
+    glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);
+
+    glBindVertexArray( cube_vao );
+    glDrawArrays( GL_TRIANGLES, 0, NumVertices );
+  }  
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void displayTerrain ()
+{
+  glUniform1i (solidColor, 0);
+  glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionView);
+
+  glBindVertexArray( hm_vao );
+  glPrimitiveRestartIndex (PRIMITIVE_RESTART);
+  glDrawArrays( GL_TRIANGLES, 0, hm.sizeOfTriangleVertices () );
+  //glDrawArrays( GL_LINE_STRIP, 0, hm.getSize () );
+  //glDrawElements ( GL_TRIANGLE_STRIP, hm.sizeOfTriStripIndices (), GL_UNSIGNED_INT, indices);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -45,33 +175,12 @@ mat4 projection = Perspective( 45.0, 1.0, 0.1, 10.0 );
 void display ()
 {
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );  
-
-  // draw windmill base
-  glUniform4fv (vColor, 1, colors[RED]);
-  glUniformMatrix4fv (vModelMatrix, 1, GL_TRUE, windmill.getBaseTransform());
-  glUniformMatrix4fv (vViewMatrix, 1, GL_TRUE, camera.getViewMatrix() );
-  glUniformMatrix4fv (vProjectionMatrix, 1, GL_TRUE, projection );
   
-  glBindVertexArray( cube_vao );
-  glDrawArrays( GL_TRIANGLES, 0, NumVertices );
-
-  // draw windmill blades
-  for (int i=0; i < 4; ++i){
-    glUniform4fv (vColor, 1, colors[1+i]);
-    glUniformMatrix4fv (vModelMatrix, 1, GL_TRUE, windmill.getBladeTransform(i));
-    glUniformMatrix4fv (vViewMatrix, 1, GL_TRUE, camera.getViewMatrix() );
-    glUniformMatrix4fv (vProjectionMatrix, 1, GL_TRUE, projection );
-
-    glBindVertexArray( cube_vao );
-    glDrawArrays( GL_TRIANGLES, 0, NumVertices );
-  }
-
-  // draw height map
-
+  displayWindmill ();
+  displayTerrain ();
 
   glutSwapBuffers();
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -80,10 +189,10 @@ void display ()
 void updateCamera ()
 {
   if (keyDown ['u'] ){
-    camera.rotateX (1.0);
+    camera.rotateX (-1.0);
   }
   else if ( keyDown ['j'] ){
-    camera.rotateX (-1.0);
+    camera.rotateX (1.0);
   }
 
   if (keyDown ['h'] ){
@@ -101,16 +210,16 @@ void updateCamera ()
   }
 
   if (keyDown ['w'] ){
-    camera.forward (0.01);
+    camera.forward (0.05);
   }
   else if ( keyDown ['s'] ){
-    camera.forward (-0.01);
+    camera.forward (-0.05);
   }
   if (keyDown ['a'] ){
-    camera.strafe (-0.01);
+    camera.strafe (-0.05);
   }
   else if ( keyDown ['d'] ){
-    camera.strafe (0.01);
+    camera.strafe (0.05);
   }
 }
 
@@ -134,6 +243,10 @@ void keyboard (unsigned char key, int x, int y)
     break;
     case 'r':
       windmill.reset ();
+    break;
+
+    case '`':
+      camera.resetViewMatrix ();
     break;
   }
 }
@@ -186,79 +299,13 @@ void timer (int val)
 
   updateCamera ();
   
+  projectionView = projection * camera.getViewMatrix ();
+
   glutPostRedisplay ();
+  
   glutTimerFunc (17, timer, 0);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-//
-
-void initCube ()
-{
-  colorcube();
-
-  glGenVertexArrays(1, &cube_vao);
-  glBindVertexArray(cube_vao);
-
-  GLuint buffer; // handle to a buffer object
-  glGenBuffers (1, &buffer); // ask GPU for a buffer
-  glBindBuffer (GL_ARRAY_BUFFER, buffer); // tells GPU what kind of buffer 
-  
-  // allocate space for the buffer
-  glBufferData (GL_ARRAY_BUFFER, NumVertices*sizeof(vec4), NULL, 
-    GL_STATIC_DRAW);
-
-  // copy cube vertices into the newly created buffer
-  glBufferSubData (GL_ARRAY_BUFFER, 0, NumVertices*sizeof(vec4), points[0]);
-
-  // enables the attribute in the shader
-  glEnableVertexAttribArray ( vPosition );
-
-  // specifies how many and what kind of components comprise the attribute
-  glVertexAttribPointer ( vPosition, 4, GL_FLOAT, GL_FALSE, 0, 
-    BUFFER_OFFSET(0));
-
-  //glEnableVertexAttribArray( vColor );
-
-  // glEnableVertexAttribArray ( vTransform );
-  // glVertexAttribPointer ( vTransform, 16, GL_FLOAT, GL_FALSE, 0, 
-  //   BUFFER_OFFSET(0));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-//
-
-void initHeightMap ()
-{
-  glGenVertexArrays(1, &terrain_vao);
-  glBindVertexArray(terrain_vao);
-
-  // initialize buffer
-  GLuint buffer; 
-  glGenBuffers (1, &buffer); 
-  glBindBuffer (GL_ARRAY_BUFFER, buffer); 
-
-  // allocate space for the buffer
-  glBufferData (GL_ARRAY_BUFFER, hm.getSize()*sizeof(vec4), NULL, 
-    GL_STATIC_DRAW);
-
-  vec4 heightMapVertices [hm.getSize ()];
-  
-  hm.flatten (heightMapVertices);
-
-  // copy cube vertices into the newly created buffer
-  glBufferSubData (GL_ARRAY_BUFFER, 0, hm.getSize()*sizeof(vec4), 
-    heightMapVertices);
-
-  // enables the attribute in the shader
-  glEnableVertexAttribArray ( vPosition );
-
-  // specifies how many and what kind of components comprise the attribute
-  glVertexAttribPointer ( vPosition, 4, GL_FLOAT, GL_FALSE, 0, 
-    BUFFER_OFFSET(0));
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -267,18 +314,16 @@ void initHeightMap ()
 int main (int argcp, char** argvp)
 {
   srand (time (NULL));
-
   fill (keyDown, keyDown+255, 0);
-
   glutInit(&argcp, argvp);
   glutInitDisplayMode( GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-  glutInitWindowSize (480, 480);
+  glutInitWindowSize (640, 640);
   glutInitContextVersion( 3, 2 );
   glutInitContextProfile( GLUT_CORE_PROFILE );
   
-  glutCreateWindow ("Windmill");
-  glutSetWindowTitle("Windmill");
-  glutSetIconTitle("Windmill");
+  glutCreateWindow ("Flight Simulator");
+  glutSetWindowTitle("Flight Simulator");
+  glutSetIconTitle("Flight Simulator");
   
   glewExperimental = GL_TRUE;
   glewInit ();
@@ -293,18 +338,10 @@ int main (int argcp, char** argvp)
   glutKeyboardUpFunc(keyboardUp);
   glutSpecialFunc (special);
 
-  GLuint program = InitShader( "vshader.glsl", "fshader.glsl" );
-  glUseProgram( program );
-
-  xlate = glGetUniformLocation( program, "xlate" );
-  vColor = glGetUniformLocation( program, "vColor" );
-  vPosition = glGetAttribLocation( program, "vPosition" );
-  vViewMatrix = glGetUniformLocation( program, "vViewMatrix" );
-  vModelMatrix = glGetUniformLocation( program, "vModelMatrix" );
-  vProjectionMatrix = glGetUniformLocation( program, "vProjectionMatrix" );
-
+  initShaders ();
   initCube ();
   initHeightMap ();
+  
   glutMainLoop ();
   
   return 0;

@@ -1,7 +1,7 @@
 CXX = g++
 CPPFLAGS = -g -o
 
-OBJS = main.cpp InitShader.cpp Windmill.cpp
+OBJS = main.cpp InitShader.cpp Windmill.cpp HeightMap.cpp
 
 INCLUDE_PATHS = -I/usr/local/include/GL -I/opt/X11/include
 
