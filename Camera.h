@@ -40,6 +40,10 @@ class Camera
     void setLook (const vec3& l){ look = l; }
     void setUp (const vec3& u)  { up = u; }
 
+    const vec4& getEye () { return eye; }
+    const vec4& getLook () { return look; }
+    const vec4& getUp () { return up; }
+
     void setXRot (float rx) { x_rot = rx; }
     void setYRot (float ry) { y_rot = ry; }
     void setZRot (float rz) { z_rot = rz; }
@@ -54,21 +58,16 @@ class Camera
     void rotateX (float amount)
     {    
       rotate (x_rot, amount);
-
-      look = eye + (mvmult (RotateY (amount), ( look - eye ) ) );
-
-      up = normalize ( mvmult ( RotateZ (amount), up ) );
-      
+      look = eye + (mvmult (RotateX (amount), ( look - eye ) ) );
+      up = normalize ( mvmult ( RotateX (amount), up ) );
       viewMatrix = LookAt (eye, look, up);
-
-      setViewMatrix ();
     }
 
-    void rotateY (float amount) {
+    void rotateY (float amount)
+    {
       rotate (y_rot, amount);
       look = eye + (mvmult (RotateY (amount), ( look - eye ) ) );
       viewMatrix = LookAt (eye, look, up);
-      //setViewMatrix ();
     }
 
     void rotateZ (float amount)
@@ -76,8 +75,6 @@ class Camera
       rotate (z_rot, amount);
       up = normalize ( mvmult ( RotateZ (amount), up ) );
       viewMatrix = LookAt (eye, look, up);
-      
-      //setViewMatrix ();
     }
 
     void forward (float amount)
@@ -102,17 +99,6 @@ class Camera
 
   private:
 
-    void setViewMatrix ()
-    {
-      rotationMatrix = (RotateZ (z_rot) * RotateY (y_rot) * RotateX (x_rot));
-      
-      up = rotationMatrix * baseUp; 
-      
-      look = normalize ( eye + (rotationMatrix * baseLook ) );
-      
-      viewMatrix = LookAt (eye, look, up);
-    }
-
     mat4 viewMatrix;
     mat4 rotationMatrix;
 
@@ -123,6 +109,4 @@ class Camera
     float x_rot;
     float y_rot;
     float z_rot;
-    
-
 };

@@ -1,21 +1,15 @@
 #include "Windmill.h"
 
-Windmill::Windmill ()
+Windmill::Windmill (const vec3& pos)
 {
   baseRotation = 0;
   bladeRotation = 0;
+  position = pos;
 }
 
 Windmill::~Windmill ()
 {
 
-}
-
-static void rotate (float& angle, float amount)
-{
-  angle += amount;
-  if (amount > 0 && angle > 360.0) angle -= 360.0;
-  else if (amount < 0 && angle < 0) angle += 360.0;
 }
 
 mat4 Windmill::getBaseTransform ()
@@ -26,6 +20,11 @@ mat4 Windmill::getBaseTransform ()
 mat4 Windmill::getBladeTransform (int i)
 {
   return bladeTransform[i];
+}
+
+void Windmill::setBaseRotation (float r)
+{
+  baseRotation = r;
 }
 
 void Windmill::rotateBase (float amt)
@@ -47,6 +46,7 @@ void Windmill::reset ()
 void Windmill::generateBaseTransform ()
 {
   baseTransform = mat4(1.0);
+  baseTransform *= Translate (position.x, position.y, position.z);
   baseTransform *= Translate (0, -.5, 0);
   baseTransform *= RotateY (baseRotation);
   baseTransform *= Scale (5.0, 50.0, 5.0);
@@ -56,6 +56,7 @@ void Windmill::generateBladeTransform ()
 {
   for (int i=0; i < 4; i++){
     bladeTransform[i] = mat4(1.0);
+    bladeTransform[i] *= Translate (position.x, position.y, position.z);
     bladeTransform[i] *= RotateY (baseRotation);
     bladeTransform[i] *= RotateZ (bladeRotation+(90.0*i));
     bladeTransform[i] *= Translate (0, 0.5, -0.1);

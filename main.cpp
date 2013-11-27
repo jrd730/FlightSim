@@ -1,22 +1,26 @@
+// simulates the view of a camera flying over a generated landscape
+
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include "Angel.h"
 #include "Camera.h"
-//#include "Colors.h"
 #include "Cube.h"
 #include "HeightMap.h"
 #include "Windmill.h"
 using namespace std;
 
 Camera camera (vec4(0, 0, 2, 1), 0, 0, 0);
-HeightMap hm (200, 200, .1, -2.0, .5, -.7);
+HeightMap hm (200, 200, .3, -2.0, .7, -.7);
 int num_hm_elements;
 GLuint* indices;
 
-Windmill windmill;
+const int NUM_WINDMILLS = 50;
+Windmill windmill[NUM_WINDMILLS];
+float wm_rotate = 0;
 
 mat4 viewMatrix; 
 mat4 projectionView;
@@ -40,6 +44,13 @@ GLuint vViewMatrix;
 GLuint vModelMatrix;
 GLuint vProjectionMatrix;
 GLuint vMvp;
+
+float fixed_velocity = 0.1;
+
+float velocity = 0.0;
+float acceleration = 0.01;
+
+float rotate_inc = 0.5;
 
 //GLfloat Left= -2.0, Right=2.0, top=2.0, bottom= -2.0, near= -4.0, far=4.0;
 //mat4 projection = Ortho(Left, Right, bottom, top, near, far);
@@ -94,6 +105,17 @@ void initCube ()
 //
 //
 
+void initWindmills ()
+{
+  for (int i = 0; i < NUM_WINDMILLS; ++i){
+    windmill[i] = Windmill (vec3  (randomFloat()*50.0+2.0, 0.5, randomFloat()*50.0+2.0));
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
 void initHeightMap ()
 {
   num_hm_elements = hm.sizeOfTriangleVertices()*2;
@@ -129,27 +151,30 @@ void initHeightMap ()
 
 void displayWindmill ()
 {
-  // draw windmill base
-  glUniform1i (solidColor, 1);
-  glUniform4fv (uColor, 1, colors[RED]);
-
-  projectionViewModel = projectionView * windmill.getBaseTransform();
-  glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);  
-  
-  glBindVertexArray( cube_vao );
-  glDrawArrays( GL_TRIANGLES, 0, NumVertices );
-
-  // draw windmill blades
-  for (int i=0; i < 4; ++i){
+  for (int i = 0; i < NUM_WINDMILLS; ++i)
+  {
+    // draw windmill base
     glUniform1i (solidColor, 1);
-    glUniform4fv (uColor, 1, colors[1+i]);
+    glUniform4fv (uColor, 1, colors[RED]);
 
-    projectionViewModel = projectionView * windmill.getBladeTransform(i);
-    glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);
-
+    projectionViewModel = projectionView * windmill[i].getBaseTransform();
+    glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);  
+    
     glBindVertexArray( cube_vao );
     glDrawArrays( GL_TRIANGLES, 0, NumVertices );
-  }  
+
+    // draw windmill blades
+    for (int j=0; j < 4; ++j){
+      glUniform1i (solidColor, 1);
+      glUniform4fv (uColor, 1, colors[1+j]);
+
+      projectionViewModel = projectionView * windmill[i].getBladeTransform(j);
+      glUniformMatrix4fv (vMvp, 1, GL_TRUE, projectionViewModel);
+
+      glBindVertexArray( cube_vao );
+      glDrawArrays( GL_TRIANGLES, 0, NumVertices );
+    } 
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,11 +199,9 @@ void displayTerrain ()
 
 void display ()
 {
-  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );  
-  
+  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
   displayWindmill ();
   displayTerrain ();
-
   glutSwapBuffers();
 }
 
@@ -186,41 +209,52 @@ void display ()
 //
 //
 
-void updateCamera ()
+void updateCamera (int val)
 {
   if (keyDown ['u'] ){
-    camera.rotateX (-1.0);
+    camera.rotateX (-rotate_inc);
   }
   else if ( keyDown ['j'] ){
-    camera.rotateX (1.0);
+    camera.rotateX (rotate_inc);
   }
 
   if (keyDown ['h'] ){
-    camera.rotateY (1.0);
+    camera.rotateY (rotate_inc);
   }
   else if ( keyDown ['k'] ){
-    camera.rotateY (-1.0);
+    camera.rotateY (-rotate_inc);
   }
 
   if (keyDown ['q'] ){
-    camera.rotateZ (1.0);
+    camera.rotateZ (-rotate_inc);
   }
   else if ( keyDown ['e'] ){
-    camera.rotateZ (-1.0);
+    camera.rotateZ (rotate_inc);
   }
 
   if (keyDown ['w'] ){
-    camera.forward (0.05);
+    camera.forward (0.1);
   }
   else if ( keyDown ['s'] ){
-    camera.forward (-0.05);
+    camera.forward (-0.1);
   }
   if (keyDown ['a'] ){
-    camera.strafe (-0.05);
+    camera.strafe (-0.1);
   }
   else if ( keyDown ['d'] ){
-    camera.strafe (0.05);
+    camera.strafe (0.1);
   }
+
+  if (keyDown ['p'] ){
+    velocity += acceleration;
+  }
+  else if ( keyDown ['l'] ){
+    velocity -= acceleration;
+  }
+
+  camera.forward (velocity);
+  
+  glutTimerFunc (17, updateCamera, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -233,16 +267,16 @@ void keyboard (unsigned char key, int x, int y)
 
   switch (key){
     case 'y':
-      windmill.rotateBase (5.0);
+      rotate(wm_rotate, 5.0);
     break;
     case 'Y':
-      windmill.rotateBase (-5.0);
+      rotate(wm_rotate, -5.0);
     break;
     case '~':
       going = !going;
     break;
     case 'r':
-      windmill.reset ();
+      //windmill.reset ();
     break;
 
     case '`':
@@ -289,23 +323,45 @@ void special (int key, int x, int y)
 //
 //
 
-void timer (int val)
+void updateWindmill (int val)
 {
-  if (going)
-    windmill.rotateBlade (1.0);
-  
-  windmill.generateBaseTransform ();
-  windmill.generateBladeTransform ();
-
-  updateCamera ();
-  
-  projectionView = projection * camera.getViewMatrix ();
-
-  glutPostRedisplay ();
-  
-  glutTimerFunc (17, timer, 0);
+  for (int i = 0; i < NUM_WINDMILLS; ++i)
+  {
+    if (going)
+      windmill[i].rotateBlade (randomFloat()*2.0);
+    
+    windmill[i].setBaseRotation (wm_rotate);
+    windmill[i].generateBaseTransform ();
+    windmill[i].generateBladeTransform ();  
+  }
+  glutTimerFunc (17, updateWindmill, 0);
 }
 
+void setTitleBar (int val)
+{
+  stringstream ss;
+  ss << "Altitude: " << camera.getEye().y;
+  glutSetWindowTitle( ss.str().c_str() );
+  glutTimerFunc (100, setTitleBar, 0);
+}
+
+void updateDisplay (int val)
+{
+  projectionView = projection * camera.getViewMatrix ();
+  glutPostRedisplay ();
+  glutTimerFunc (17, updateDisplay, 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//
+
+void reshape(GLsizei width, GLsizei height)
+{
+   glViewport( 0, 0, width, height );
+    GLfloat aspect = GLfloat(width)/height;
+    mat4  projection = Perspective( 45.0, aspect, .1, 10.0 );
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -315,6 +371,7 @@ int main (int argcp, char** argvp)
 {
   srand (time (NULL));
   fill (keyDown, keyDown+255, 0);
+
   glutInit(&argcp, argvp);
   glutInitDisplayMode( GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
   glutInitWindowSize (640, 640);
@@ -322,7 +379,6 @@ int main (int argcp, char** argvp)
   glutInitContextProfile( GLUT_CORE_PROFILE );
   
   glutCreateWindow ("Flight Simulator");
-  glutSetWindowTitle("Flight Simulator");
   glutSetIconTitle("Flight Simulator");
   
   glewExperimental = GL_TRUE;
@@ -331,18 +387,22 @@ int main (int argcp, char** argvp)
   glEnable( GL_DEPTH_TEST );
   glClearColor(0.1, 0.4, 0.9, 1.0);
 
-  glutTimerFunc (40, timer, 0);
+  glutTimerFunc (1, updateCamera, 0);
+  glutTimerFunc (1, updateWindmill, 0);
+  glutTimerFunc (1, updateDisplay, 0);
+  glutTimerFunc (1, setTitleBar, 0);
+  
   glutDisplayFunc(display);
-  //glutReshapeFunc(reshape);
+  glutReshapeFunc(reshape);
   glutKeyboardFunc(keyboard);
   glutKeyboardUpFunc(keyboardUp);
   glutSpecialFunc (special);
 
   initShaders ();
   initCube ();
+  initWindmills ();
   initHeightMap ();
   
   glutMainLoop ();
-  
   return 0;
 }

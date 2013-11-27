@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include "Angel.h"
+#include "util.h"
 using namespace std;
 
 const GLuint PRIMITIVE_RESTART = 99999999;
@@ -15,7 +16,7 @@ class HeightMap
   public:
 
     // creates a flat plane of 3d points
-    HeightMap (int height=512, int width= 512, float spa = .01, float xo=0, float zo=0, float iy=0);
+    HeightMap (int height=16, int width=16, float spa = .01, float xo=0, float zo=0, float iy=0);
     ~HeightMap ();
 
     // Resets all y heights to zero

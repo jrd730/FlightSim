@@ -1,9 +1,5 @@
 #include "HeightMap.h"
 
-static float randomFloat () {
-  return ((float)rand()) / ((float)RAND_MAX);
-}
-
  HeightMap :: HeightMap (int height, int width, float spa, float xo, float zo, float iy) :
   rows (height), cols (width), spacing (spa), xoff (xo), zoff (zo), y (iy)
 {
@@ -25,7 +21,7 @@ void HeightMap :: reset ()
   for (int i = 0; i < rows; ++i){
     for (int j = 0; j < cols; ++j)
     {
-      heights[i][j] = vec4 ((float)(j)*spacing + xoff, y, (float)(i)*spacing + zoff, 1);
+      heights[i][j] = vec4 ((float)(j)*spacing + xoff, y+(randomFloat()/4.0), (float)(i)*spacing + zoff, 1);
       colors[i][j] = vec4 (0, (1.3 - randomFloat()), 0, 1);
     }
   }
