@@ -46,18 +46,14 @@ GLuint vProjectionMatrix;
 GLuint vMvp;
 
 float fixed_velocity = 0.1;
-
 float velocity = 0.0;
 float acceleration = 0.01;
-
 float rotate_inc = 0.5;
 
 //GLfloat Left= -2.0, Right=2.0, top=2.0, bottom= -2.0, near= -4.0, far=4.0;
 //mat4 projection = Ortho(Left, Right, bottom, top, near, far);
 
 mat4 projection = Perspective( 45.0, 1.0, 0.1, 100.0 );
-
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -211,17 +207,17 @@ void display ()
 
 void updateCamera (int val)
 {
-  if (keyDown ['u'] ){
+  if (keyDown ['w'] ){
     camera.rotateX (-rotate_inc);
   }
-  else if ( keyDown ['j'] ){
+  else if ( keyDown ['s'] ){
     camera.rotateX (rotate_inc);
   }
 
-  if (keyDown ['h'] ){
+  if (keyDown ['a'] ){
     camera.rotateY (rotate_inc);
   }
-  else if ( keyDown ['k'] ){
+  else if ( keyDown ['d'] ){
     camera.rotateY (-rotate_inc);
   }
 
@@ -232,16 +228,16 @@ void updateCamera (int val)
     camera.rotateZ (rotate_inc);
   }
 
-  if (keyDown ['w'] ){
+  if (keyDown ['u'] ){
     camera.forward (0.1);
   }
-  else if ( keyDown ['s'] ){
+  else if ( keyDown ['j'] ){
     camera.forward (-0.1);
   }
-  if (keyDown ['a'] ){
+  if (keyDown ['h'] ){
     camera.strafe (-0.1);
   }
-  else if ( keyDown ['d'] ){
+  else if ( keyDown ['k'] ){
     camera.strafe (0.1);
   }
 
@@ -251,9 +247,7 @@ void updateCamera (int val)
   else if ( keyDown ['l'] ){
     velocity -= acceleration;
   }
-
   camera.forward (velocity);
-  
   glutTimerFunc (17, updateCamera, 0);
 }
 
@@ -360,7 +354,7 @@ void reshape(GLsizei width, GLsizei height)
 {
    glViewport( 0, 0, width, height );
     GLfloat aspect = GLfloat(width)/height;
-    mat4  projection = Perspective( 45.0, aspect, .1, 10.0 );
+    mat4  projection = Perspective( 45.0, 1.0/aspect, .1, 10.0 );
 }
 
 ///////////////////////////////////////////////////////////////////////////////

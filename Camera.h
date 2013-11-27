@@ -36,9 +36,9 @@ class Camera
       viewMatrix = LookAt (eye, look, up);
     }
 
-    void setEye (const vec3& p) { eye = p; }
-    void setLook (const vec3& l){ look = l; }
-    void setUp (const vec3& u)  { up = u; }
+    void setEye (const vec4& p) { eye = p; }
+    void setLook (const vec4& l){ look = l; }
+    void setUp (const vec4& u)  { up = u; }
 
     const vec4& getEye () { return eye; }
     const vec4& getLook () { return look; }
